@@ -1,14 +1,17 @@
-from openai import OpenAI
+from openai import OpenAI  # type: ignore[import-untyped]
 import json
 import re
 from typing import Dict, List, Any
 
 class ErrorAnalyzer:
-    """Analyzes log files for errors using OpenAI LLM"""
+    """Analyzes log files for errors using OpenRouter LLM"""
     
     def __init__(self, api_key: str):
-        self.client = OpenAI(api_key=api_key)
-        self.model = "gpt-4o-mini"  # Using cost-effective model
+        self.client = OpenAI(
+            api_key=api_key,
+            base_url="https://openrouter.ai/api/v1"
+        )
+        self.model = "openai/gpt-4o-mini"  # Using cost-effective model via OpenRouter
     
     def extract_error_lines(self, log_content: str) -> List[str]:
         """Extract lines that likely contain errors"""
@@ -156,7 +159,7 @@ Return ONLY valid JSON, no additional text."""
                     },
                     {
                         'title': 'Check API Connection',
-                        'description': 'Verify OpenAI API is accessible',
+                        'description': 'Verify OpenRouter API is accessible',
                         'steps': ['Check internet connection', 'Verify API key', 'Check API quota'],
                         'code_example': ''
                     },
@@ -179,7 +182,7 @@ Return ONLY valid JSON, no additional text."""
                 'solutions': [
                     {
                         'title': 'Check API Key',
-                        'description': 'Verify OpenAI API key is correct',
+                        'description': 'Verify OpenRouter API key is correct',
                         'steps': ['Check API key in sidebar', 'Verify key is valid', 'Check API quota'],
                         'code_example': ''
                     },
