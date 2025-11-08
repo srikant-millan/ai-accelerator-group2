@@ -1,0 +1,5 @@
+2025-11-07 00:00:00 INFO Server started
+2025-11-07 00:01:15 ERROR Database connection failed: timeout
+2025-11-07 00:01:20 WARN High CPU usage 95%
+2025-11-07 00:02:30 ERROR Service payment-api crashed at line 342
+2025-11-07 00:02:45 ERROR Out of memory in pod-7

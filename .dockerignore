@@ -1,0 +1,19 @@
+# BLOCK EVERYTHING BY DEFAULT
+*
+
+# ALLOW ONLY YOUR PROJECT FILES
+!main.py
+!alert.py
+!parser.py
+!report.py
+!api.py
+!sample.log
+!.env
+!.env.example
+!requirements.txt
+!README.md
+!static/
+!static/**
+!browser-agent/
+!browser-agent/**
+!Dockerfile
