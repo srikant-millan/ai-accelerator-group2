@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkgs = { python = "python311" }
+
+[phases.install]
+cmds = [
+  "pip install --upgrade pip",
+  "pip install -r requirements.txt"
+]
+
+[start]
+cmd = "streamlit run DevOpsDashboard/app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true"
+

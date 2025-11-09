@@ -1,0 +1,40 @@
+# Virtual environments
+myenv/
+venv/
+env/
+.venv/
+virtualenv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment files (use Railway's environment variables instead)
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+logs/
+DevOpsDashboard/logfiles/
+
+# Git
+.git/
+.gitignore
+
+# Documentation (optional - can be included)
+# README.md
+
