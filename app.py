@@ -2,6 +2,7 @@ import streamlit as st  # type: ignore[import-untyped]
 import os
 from dotenv import load_dotenv  # type: ignore[import-untyped]
 import sys
+import traceback
 
 # Add agents directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -12,7 +13,9 @@ try:
     MULTI_AGENT_AVAILABLE = True
 except ImportError as e:
     MULTI_AGENT_AVAILABLE = False
+    import_error = traceback.format_exc()
     print(f"Multi-agent framework not available: {e}")
+    print(f"Import traceback: {import_error}")
 
 # Fallback to old system
 from error_analyzer import ErrorAnalyzer
@@ -29,14 +32,19 @@ except ImportError:
 import tempfile
 
 # Load environment variables
-# Railway: Uses environment variables set in Railway dashboard (no .env file needed)
-# Local: Falls back to .env file for local development
-# Priority: Environment variables > .env file
+# Priority: Environment variables (Railway/local) > .env file (local only)
+# Railway: Environment variables are set in Railway dashboard
+# Local: Falls back to .env file if environment variables are not set
 env_file_used = None
-is_railway = os.getenv("RAILWAY_ENVIRONMENT") is not None or os.getenv("RAILWAY_PROJECT_ID") is not None
+is_railway = (
+    os.getenv("RAILWAY_ENVIRONMENT") is not None 
+    or os.getenv("RAILWAY_PROJECT_ID") is not None
+    or os.getenv("RAILWAY") is not None
+)
 
+# Always try to load .env for local development (won't override existing env vars)
+# This allows local dev with .env file, but Railway will use its own env vars
 if not is_railway:
-    # Only load .env file for local development
     env_path = os.path.join(os.path.dirname(__file__), '.env')
     if os.path.exists(env_path):
         load_dotenv(env_path, override=False)  # Don't override existing env vars
@@ -270,67 +278,88 @@ def main():
             
             # Analyze button
             if st.button("🔍 Analyze Errors", type="primary", use_container_width=True):
-                if not api_key:
-                    if is_railway:
-                        st.error("❌ Please set OPENAI_API_KEY as an environment variable in Railway dashboard")
+                # Debug: Log button click for Railway troubleshooting
+                num_files = len(log_files_data) if uploaded_files else 0
+                print(f"[DEBUG] Analyze button clicked. API key present: {bool(api_key)}, Multi-agent available: {MULTI_AGENT_AVAILABLE}, Files: {num_files}")
+                try:
+                    if not api_key:
+                        if is_railway:
+                            st.error("❌ Please set OPENAI_API_KEY as an environment variable in Railway dashboard")
+                        else:
+                            st.error("❌ Please set OPENAI_API_KEY in .env file or as an environment variable")
+                    elif st.session_state.analysis_in_progress:
+                        st.warning("⏳ Analysis already in progress...")
+                    elif st.session_state.analysis_result or st.session_state.classification_result:
+                        # Reset previous results if re-analyzing
+                        st.session_state.analysis_result = None
+                        st.session_state.classification_result = None
+                        st.session_state.solutions = None
+                        st.session_state.selected_solution = None
+                        st.session_state.notification_results = None
+                        st.session_state.notifications_sent = False
+                        st.session_state.analysis_in_progress = True
                     else:
-                        st.error("❌ Please set OPENAI_API_KEY in .env file or as an environment variable")
-                elif st.session_state.analysis_in_progress:
-                    st.warning("⏳ Analysis already in progress...")
-                elif st.session_state.analysis_result or st.session_state.classification_result:
-                    # Reset previous results if re-analyzing
-                    st.session_state.analysis_result = None
-                    st.session_state.classification_result = None
-                    st.session_state.solutions = None
-                    st.session_state.selected_solution = None
-                    st.session_state.notification_results = None
-                    st.session_state.notifications_sent = False
-                    st.session_state.analysis_in_progress = True
-                else:
-                    st.session_state.analysis_in_progress = True
-                    st.session_state.notification_results = None
-                    st.session_state.notifications_sent = False
-                    
-                    if MULTI_AGENT_AVAILABLE and st.session_state.use_multi_agent:
-                        with st.spinner("🤖 Multi-Agent Analysis in progress..."):
-                            try:
-                                orchestrator = MultiAgentOrchestrator(
-                                    api_key=api_key,
-                                    slack_webhook=slack_webhook if st.session_state.slack_enabled else None,
-                                    jira_config=jira_config if st.session_state.jira_enabled else None
-                                )
-                                result = orchestrator.run_workflow(
-                                    log_files=log_files_data,
-                                    send_notifications=False
-                                )
-                                st.session_state.classification_result = result.get('classification_result')
-                                st.session_state.solutions = result.get('solutions')
-                                st.session_state.analysis_result = {
-                                    'error_type': result.get('classification_result', {}).get('aggregated_analysis', {}).get('primary_issue_category', 'Unknown'),
-                                    'severity': result.get('classification_result', {}).get('aggregated_analysis', {}).get('overall_severity', 'Medium'),
-                                    'causes': [{'title': f, 'description': f} for f in result.get('classification_result', {}).get('aggregated_analysis', {}).get('key_findings', [])],
-                                    'solutions': result.get('solutions', [])
-                                }
-                                st.session_state.analysis_in_progress = False
-                                st.success("✅ Analysis complete!")
-                                st.rerun()  # Rerun to update UI with results
-                            except Exception as e:
-                                st.session_state.analysis_in_progress = False
-                                st.error(f"❌ Error: {str(e)}")
-                    else:
-                        if len(log_files_data) > 1:
-                            st.warning("⚠️ Analyzing first file only (multi-agent not available)")
-                        with st.spinner("🤖 Analyzing..."):
-                            try:
-                                analyzer = ErrorAnalyzer(api_key)
-                                result = analyzer.analyze_errors(log_files_data[0]['content'])
-                                st.session_state.analysis_result = result
-                                st.session_state.analysis_in_progress = False
-                                st.success("✅ Analysis complete!")
-                                st.rerun()  # Rerun to update UI with results
-                            except Exception as e:
-                                st.session_state.analysis_in_progress = False
-                                st.error(f"❌ Error: {str(e)}")
+                        st.session_state.analysis_in_progress = True
+                        st.session_state.notification_results = None
+                        st.session_state.notifications_sent = False
+                        
+                        if MULTI_AGENT_AVAILABLE and st.session_state.use_multi_agent:
+                            with st.spinner("🤖 Multi-Agent Analysis in progress..."):
+                                try:
+                                    orchestrator = MultiAgentOrchestrator(
+                                        api_key=api_key,
+                                        slack_webhook=slack_webhook if st.session_state.slack_enabled else None,
+                                        jira_config=jira_config if st.session_state.jira_enabled else None
+                                    )
+                                    result = orchestrator.run_workflow(
+                                        log_files=log_files_data,
+                                        send_notifications=False
+                                    )
+                                    st.session_state.classification_result = result.get('classification_result')
+                                    st.session_state.solutions = result.get('solutions')
+                                    st.session_state.analysis_result = {
+                                        'error_type': result.get('classification_result', {}).get('aggregated_analysis', {}).get('primary_issue_category', 'Unknown'),
+                                        'severity': result.get('classification_result', {}).get('aggregated_analysis', {}).get('overall_severity', 'Medium'),
+                                        'causes': [{'title': f, 'description': f} for f in result.get('classification_result', {}).get('aggregated_analysis', {}).get('key_findings', [])],
+                                        'solutions': result.get('solutions', [])
+                                    }
+                                    st.session_state.analysis_in_progress = False
+                                    st.success("✅ Analysis complete!")
+                                    st.rerun()  # Rerun to update UI with results
+                                except Exception as e:
+                                    st.session_state.analysis_in_progress = False
+                                    error_details = traceback.format_exc()
+                                    st.error(f"❌ Error during multi-agent analysis: {str(e)}")
+                                    with st.expander("🔍 View detailed error", expanded=False):
+                                        st.code(error_details, language="python")
+                                    # Log to console for Railway logs
+                                    print(f"Multi-agent analysis error: {error_details}")
+                        else:
+                            if len(log_files_data) > 1:
+                                st.warning("⚠️ Analyzing first file only (multi-agent not available)")
+                            with st.spinner("🤖 Analyzing..."):
+                                try:
+                                    analyzer = ErrorAnalyzer(api_key)
+                                    result = analyzer.analyze_errors(log_files_data[0]['content'])
+                                    st.session_state.analysis_result = result
+                                    st.session_state.analysis_in_progress = False
+                                    st.success("✅ Analysis complete!")
+                                    st.rerun()  # Rerun to update UI with results
+                                except Exception as e:
+                                    st.session_state.analysis_in_progress = False
+                                    error_details = traceback.format_exc()
+                                    st.error(f"❌ Error during analysis: {str(e)}")
+                                    with st.expander("🔍 View detailed error", expanded=False):
+                                        st.code(error_details, language="python")
+                                    # Log to console for Railway logs
+                                    print(f"Error analysis error: {error_details}")
+                except Exception as outer_e:
+                    # Catch any unexpected errors in the button handler
+                    error_details = traceback.format_exc()
+                    st.error(f"❌ Unexpected error: {str(outer_e)}")
+                    with st.expander("🔍 View detailed error", expanded=False):
+                        st.code(error_details, language="python")
+                    print(f"Unexpected error in analyze button: {error_details}")
     
     # Column 2: Analysis Results Card
     with col2:
