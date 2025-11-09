@@ -28,18 +28,26 @@ except ImportError:
 
 import tempfile
 
-# Load environment variables from .env file
-# Both Slack and JIRA will use the same .env file loaded here
-# Try current directory first, then fallback to auto-detect
-env_path = os.path.join(os.path.dirname(__file__), '.env')
+# Load environment variables
+# Railway: Uses environment variables set in Railway dashboard (no .env file needed)
+# Local: Falls back to .env file for local development
+# Priority: Environment variables > .env file
 env_file_used = None
-if os.path.exists(env_path):
-    load_dotenv(env_path)
-    env_file_used = env_path
+is_railway = os.getenv("RAILWAY_ENVIRONMENT") is not None or os.getenv("RAILWAY_PROJECT_ID") is not None
+
+if not is_railway:
+    # Only load .env file for local development
+    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    if os.path.exists(env_path):
+        load_dotenv(env_path, override=False)  # Don't override existing env vars
+        env_file_used = env_path
+    else:
+        # Try auto-detect .env file
+        load_dotenv(override=False)
+        env_file_used = "auto-detected" if os.path.exists('.env') else None
 else:
-    # Default behavior - search for .env in current directory
-    load_dotenv()
-    env_file_used = "auto-detected"
+    # Running on Railway - environment variables are already set
+    env_file_used = "Railway environment variables"
 
 # Page configuration
 st.set_page_config(
@@ -107,11 +115,11 @@ def send_notifications(result, solution, slack_webhook, jira_config, auto_trigge
     """Helper function to send notifications"""
     notification_results = {'slack': None, 'jira': None, 'all_success': False}
     
-    # Get Slack webhook from .env if not provided
+    # Get Slack webhook from environment variables (Railway) or .env (local)
     slack_webhook_env = os.getenv("SLACK_WEBHOOK_URL", "")
     slack_webhook_to_use = slack_webhook or slack_webhook_env
     
-    # Get JIRA config from .env if not provided
+    # Get JIRA config from environment variables (Railway) or .env (local)
     jira_server_env = os.getenv("JIRA_SERVER", "")
     jira_email_env = os.getenv("JIRA_EMAIL", "")
     jira_token_env = os.getenv("JIRA_API_TOKEN", "")
@@ -169,7 +177,7 @@ def send_notifications(result, solution, slack_webhook, jira_config, auto_trigge
     return notification_results
 
 def main():
-    # Get API key from .env
+    # Get API key from environment variables (Railway) or .env (local)
     api_key = os.getenv("OPENAI_API_KEY", "")
     if api_key:
         os.environ["OPENAI_API_KEY"] = api_key
@@ -202,7 +210,7 @@ def main():
     else:
         st.warning("⚠️ Multi-Agent Framework not available, using fallback mode")
     
-    # Get credentials from .env (no UI for keys)
+    # Get credentials from environment variables (Railway) or .env (local)
     slack_webhook = os.getenv("SLACK_WEBHOOK_URL", "")
     jira_config = {
         'server': os.getenv("JIRA_SERVER", ""),
@@ -224,7 +232,10 @@ def main():
         """, unsafe_allow_html=True)
         
         if not api_key:
-            st.warning("⚠️ Please set OPENAI_API_KEY in .env file")
+            if is_railway:
+                st.warning("⚠️ Please set OPENAI_API_KEY as an environment variable in Railway dashboard")
+            else:
+                st.warning("⚠️ Please set OPENAI_API_KEY in .env file or as an environment variable")
         
         # File upload
         uploaded_files = st.file_uploader(
@@ -260,7 +271,10 @@ def main():
             # Analyze button
             if st.button("🔍 Analyze Errors", type="primary", use_container_width=True):
                 if not api_key:
-                    st.error("❌ Please set OPENAI_API_KEY in .env file")
+                    if is_railway:
+                        st.error("❌ Please set OPENAI_API_KEY as an environment variable in Railway dashboard")
+                    else:
+                        st.error("❌ Please set OPENAI_API_KEY in .env file or as an environment variable")
                 elif st.session_state.analysis_in_progress:
                     st.warning("⏳ Analysis already in progress...")
                 elif st.session_state.analysis_result or st.session_state.classification_result:
