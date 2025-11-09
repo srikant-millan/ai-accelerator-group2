@@ -56,7 +56,7 @@ Check the **Deployments** tab for build progress and logs.
 
 ### 1. `Procfile` (Root directory)
 ```
-web: streamlit run DevOpsDashboard/app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true
+web: streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true
 ```
 - Tells Railway how to start the app
 - Uses Railway's `$PORT` environment variable
@@ -100,14 +100,17 @@ ai-accelerator-group2/
 ├── Procfile                    # Railway start command
 ├── railway.json               # Railway config
 ├── nixpacks.toml              # Build config
-├── requirements.txt            # Dependencies (root)
+├── requirements.txt            # Dependencies
 ├── .railwayignore             # Ignore patterns
-├── DevOpsDashboard/
-│   ├── app.py                 # Main Streamlit app
-│   ├── error_analyzer.py
-│   ├── notification_agents.py
-│   ├── agents/                # Multi-agent framework
-│   └── requirements.txt       # (duplicate, root is used)
+├── app.py                     # Main Streamlit app
+├── error_analyzer.py
+├── notification_agents.py
+├── agents/                    # Multi-agent framework
+│   ├── __init__.py
+│   ├── agent_orchestrator.py
+│   ├── error_classification_agent.py
+│   ├── solution_agent.py
+│   └── notification_agent.py
 └── .gitignore
 ```
 
@@ -116,7 +119,7 @@ ai-accelerator-group2/
 Before deploying, ensure:
 
 - [x] `requirements.txt` is in root directory
-- [x] `Procfile` exists with correct path to `DevOpsDashboard/app.py`
+- [x] `Procfile` exists with correct path to `app.py`
 - [x] All environment variables are set in Railway dashboard
 - [x] No hardcoded paths that won't work in production
 - [x] `.gitignore` excludes `.env` files (use Railway variables instead)
@@ -133,7 +136,7 @@ Before deploying, ensure:
 **Problem:** Deployment succeeds but app doesn't load
 - **Solution:** 
   - Check Railway logs for errors
-  - Verify `Procfile` path is correct: `DevOpsDashboard/app.py`
+  - Verify `Procfile` path is correct: `app.py`
   - Ensure PORT is being used (Railway sets it automatically)
 
 ### Import Errors
@@ -194,7 +197,7 @@ Railway automatically redeploys when you:
 1. **No `.env` file needed**: Railway uses environment variables from the dashboard
 2. **Port is automatic**: Railway sets `$PORT`, don't hardcode it
 3. **Headless mode**: Streamlit runs in headless mode for production
-4. **File paths**: App is in `DevOpsDashboard/` subdirectory
+4. **File paths**: All files are in root directory, `app.py` is the entry point
 5. **Dependencies**: All in root `requirements.txt`
 
 ## 🎯 Quick Start Command Reference
@@ -206,7 +209,7 @@ If you need to test locally with Railway-like settings:
 export PORT=8501
 
 # Run with Railway-like settings
-streamlit run DevOpsDashboard/app.py \
+streamlit run app.py \
   --server.port=$PORT \
   --server.address=0.0.0.0 \
   --server.headless=true

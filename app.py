@@ -30,22 +30,16 @@ import tempfile
 
 # Load environment variables from .env file
 # Both Slack and JIRA will use the same .env file loaded here
-# Try current directory first (DevOpsDashboard/.env), then parent directory
+# Try current directory first, then fallback to auto-detect
 env_path = os.path.join(os.path.dirname(__file__), '.env')
 env_file_used = None
 if os.path.exists(env_path):
     load_dotenv(env_path)
     env_file_used = env_path
 else:
-    # Fallback to parent directory
-    parent_env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
-    if os.path.exists(parent_env_path):
-        load_dotenv(parent_env_path)
-        env_file_used = parent_env_path
-    else:
-        # Default behavior - search for .env in current and parent directories
-        load_dotenv()
-        env_file_used = "auto-detected"
+    # Default behavior - search for .env in current directory
+    load_dotenv()
+    env_file_used = "auto-detected"
 
 # Page configuration
 st.set_page_config(
